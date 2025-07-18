@@ -1,0 +1,385 @@
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sistem Pencarian Dokumen Hibrida</title>
+        <!-- Tailwind CSS CDN -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            /* Custom styles for Inter font and general aesthetics */
+            body {
+                font-family: 'Inter', sans-serif;
+                background-color: #f3f4f6; /* Light gray background */
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                min-height: 100vh;
+                padding: 1rem;
+            }
+            .container {
+                background-color: #ffffff;
+                border-radius: 1rem; /* Rounded corners for the main container */
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                padding: 2rem;
+                width: 100%;
+                max-width: 1200px; /* Increased max width for more content */
+                display: flex;
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            /* Responsive adjustments */
+            @media (min-width: 768px) {
+                .container {
+                    flex-direction: row;
+                    gap: 2rem;
+                }
+                .main-content, .evaluation-section {
+                    flex: 2; /* Main content takes more space */
+                }
+                .evaluation-section {
+                    flex: 1; /* Evaluation section takes less space */
+                }
+            }
+            .search-input {
+                border: 1px solid #d1d5db; /* Light gray border */
+                border-radius: 0.5rem; /* Rounded corners */
+                padding: 0.75rem 1rem;
+                width: 100%;
+                font-size: 1rem;
+                outline: none;
+                transition: border-color 0.2s;
+            }
+            .search-input:focus {
+                border-color: #3b82f6; /* Blue on focus */
+            }
+            .search-button, .eval-button {
+                background-color: #3b82f6; /* Blue background */
+                color: white;
+                padding: 0.75rem 1.5rem;
+                border-radius: 0.5rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background-color 0.2s, transform 0.1s;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            }
+            .search-button:hover, .eval-button:hover {
+                background-color: #2563eb; /* Darker blue on hover */
+                transform: translateY(-1px);
+            }
+            .search-button:active, .eval-button:active {
+                transform: translateY(0);
+            }
+            .document-item {
+                background-color: #f9fafb; /* Lighter gray for items */
+                border: 1px solid #e5e7eb;
+                border-radius: 0.75rem;
+                padding: 1rem;
+                margin-bottom: 0.75rem;
+                cursor: pointer;
+                transition: background-color 0.2s, box-shadow 0.2s;
+            }
+            .document-item:hover {
+                background-color: #eff6ff; /* Light blue on hover */
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            }
+            .document-title {
+                font-weight: 600;
+                color: #1f2937; /* Dark gray text */
+                margin-bottom: 0.25rem;
+            }
+            .document-snippet {
+                font-size: 0.875rem;
+                color: #4b5563; /* Medium gray text */
+            }
+            .document-score {
+                font-size: 0.75rem;
+                color: #6b7280; /* Lighter gray text */
+                margin-top: 0.5rem;
+            }
+            .loading-indicator {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
+                color: #6b7280;
+                font-size: 0.9rem;
+            }
+            .spinner {
+                border: 4px solid rgba(0, 0, 0, 0.1);
+                border-left-color: #3b82f6;
+                border-radius: 50%;
+                width: 24px;
+                height: 24px;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .metric-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 0.5rem 0;
+                border-bottom: 1px dashed #e5e7eb;
+            }
+            .metric-item:last-child {
+                border-bottom: none;
+            }
+            .metric-label {
+                font-weight: 500;
+                color: #374151;
+            }
+            .metric-value {
+                font-weight: 600;
+                color: #10b981; /* Green for good values */
+            }
+        </style>
+    </head>
+    <body class="p-4">
+        <div class="container">
+            <!-- Main Content Section (Search & Document Detail) -->
+            <div class="main-content flex flex-col gap-4">
+                <!-- Search Section -->
+                <div class="search-section flex flex-col gap-4">
+                    <h1 class="text-2xl font-bold text-gray-800 mb-2">Sistem Pencarian Dokumen</h1>
+                    <div class="flex flex-col gap-3">
+                        <input type="text" id="queryInput" placeholder="Masukkan query pencarian Anda..." class="search-input">
+                        <button id="searchButton" class="search-button">Cari Dokumen</button>
+                    </div>
+                    <div id="loadingSearch" class="loading-indicator hidden">
+                        <div class="spinner"></div>
+                        <span>Mencari dokumen...</span>
+                    </div>
+                    <div id="searchResults" class="results-list mt-4">
+                        <h2 class="text-xl font-semibold text-gray-700 mb-3">Hasil Pencarian</h2>
+                        <div id="documentList" class="flex flex-col">
+                            <!-- Document items will be injected here -->
+                            <p class="text-gray-500 text-sm">Masukkan query untuk memulai pencarian.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Document Detail/Summary Section -->
+                <div class="document-detail-section flex flex-col gap-4 mt-8">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-3">Detail Dokumen & Ringkasan AI</h2>
+                    <div id="documentDetail" class="document-item p-4 bg-gray-50 border border-gray-200 rounded-lg min-h-[200px]">
+                        <p class="text-gray-500 text-sm">Klik dokumen di hasil pencarian untuk melihat detail dan ringkasan AI.</p>
+                    </div>
+                    <div id="loadingSummary" class="loading-indicator hidden">
+                        <div class="spinner"></div>
+                        <span>Menghasilkan ringkasan AI...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Evaluation Metrics Section -->
+            <div class="evaluation-section flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-gray-800 mb-2">Metrik Evaluasi Model</h2>
+                <p class="text-gray-600 text-sm">
+                    Metrik ini adalah hasil evaluasi model hibrida TF-IDF dan BERT yang dilatih di *backend*.
+                    Klik tombol di bawah untuk memuatnya.
+                </p>
+                <button id="loadMetricsButton" class="eval-button">Muat Metrik</button>
+                <div id="metricsDisplay" class="bg-white p-4 rounded-lg border border-gray-200 mt-4 hidden">
+                    <div class="metric-item">
+                        <span class="metric-label">Akurasi Pelatihan:</span>
+                        <span id="trainAccuracy" class="metric-value">N/A</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Akurasi Pengujian:</span>
+                        <span id="testAccuracy" class="metric-value">N/A</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Presisi:</span>
+                        <span id="precision" class="metric-value">N/A</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Recall:</span>
+                        <span id="recall" class="metric-value">N/A</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">MAP (Mean Average Precision):</span>
+                        <span id="map" class="metric-value">N/A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // --- Konfigurasi API Backend ---
+            const BACKEND_URL = 'http://127.0.0.1:5000'; // Alamat server Flask Anda
+
+            // --- DOM Elements ---
+            const queryInput = document.getElementById('queryInput');
+            const searchButton = document.getElementById('searchButton');
+            const documentList = document.getElementById('documentList');
+            const documentDetail = document.getElementById('documentDetail');
+            const loadingSearch = document.getElementById('loadingSearch');
+            const loadingSummary = document.getElementById('loadingSummary');
+
+            const loadMetricsButton = document.getElementById('loadMetricsButton');
+            const metricsDisplay = document.getElementById('metricsDisplay');
+            const trainAccuracy = document.getElementById('trainAccuracy');
+            const testAccuracy = document.getElementById('testAccuracy');
+            const precision = document.getElementById('precision');
+            const recall = document.getElementById('recall');
+            const map = document.getElementById('map');
+
+            // --- Fungsi Pra-pemrosesan Teks (untuk konsistensi, meskipun backend yang melakukan) ---
+            function preprocessText(text) {
+                return String(text).toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+            }
+
+            // --- Fungsi Pencarian Dokumen (Memanggil Backend) ---
+            async function performSearch() {
+                const query = queryInput.value;
+                if (!query.trim()) {
+                    documentList.innerHTML = '<p class="text-gray-500 text-sm">Masukkan query untuk memulai pencarian.</p>';
+                    documentDetail.innerHTML = '<p class="text-gray-500 text-sm">Klik dokumen di hasil pencarian untuk melihat detail dan ringkasan AI.</p>';
+                    return;
+                }
+
+                loadingSearch.classList.remove('hidden');
+                documentList.innerHTML = ''; // Clear previous results
+
+                try {
+                    const response = await fetch(`${BACKEND_URL}/search`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ query: query })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Terjadi kesalahan pada server.');
+                    }
+
+                    const searchResults = await response.json();
+
+                    if (searchResults.length === 0) {
+                        documentList.innerHTML = '<p class="text-gray-500 text-sm">Tidak ada dokumen yang ditemukan.</p>';
+                    } else {
+                        searchResults.forEach(doc => {
+                            const docItem = document.createElement('div');
+                            docItem.classList.add('document-item');
+                            docItem.innerHTML = `
+                                <div class="document-title">${doc.title}</div>
+                                <div class="document-snippet">${doc.content.substring(0, 150)}...</div>
+                                <div class="document-score">Skor Relevansi: ${doc.relevanceScore.toFixed(4)}</div>
+                            `;
+                            docItem.addEventListener('click', () => displayDocumentDetail(doc));
+                            documentList.appendChild(docItem);
+                        });
+                    }
+                } catch (error) {
+                    documentList.innerHTML = `<p class="text-red-500 text-sm">Error: ${error.message}. Pastikan server backend berjalan.</p>`;
+                    console.error("Error fetching search results:", error);
+                } finally {
+                    loadingSearch.classList.add('hidden');
+                }
+            }
+
+            // --- Fungsi Menampilkan Detail Dokumen dan Ringkasan AI ---
+            async function displayDocumentDetail(doc) {
+                documentDetail.innerHTML = `
+                    <h3 class="text-lg font-bold text-gray-800">${doc.title}</h3>
+                    <p class="text-gray-700 mt-2">${doc.content}</p>
+                    <div class="border-t border-gray-200 mt-4 pt-4">
+                        <h4 class="text-md font-semibold text-gray-700">Ringkasan AI:</h4>
+                        <div id="aiSummaryContent" class="text-gray-600 mt-2"></div>
+                    </div>
+                `;
+                const aiSummaryContent = document.getElementById('aiSummaryContent');
+                loadingSummary.classList.remove('hidden');
+                aiSummaryContent.innerHTML = ''; // Clear previous summary
+
+                try {
+                    // Call LLM to generate summary (direct call to Gemini API)
+                    let chatHistory = [];
+                    const prompt = `Ringkas dokumen berikut ini secara singkat dan padat dalam bahasa Indonesia, fokus pada poin-poin utamanya:\n\n${doc.content}`;
+                    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                    const payload = { contents: chatHistory };
+                    const apiKey = ""; // Canvas will provide this at runtime, or you can use your own if deploying
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const text = result.candidates[0].content.parts[0].text;
+                        aiSummaryContent.innerText = text;
+                    } else {
+                        aiSummaryContent.innerText = "Gagal menghasilkan ringkasan AI. Struktur respons tidak terduga.";
+                        console.error("Unexpected LLM response structure:", result);
+                    }
+                } catch (error) {
+                    aiSummaryContent.innerText = "Terjadi kesalahan saat menghubungi layanan AI.";
+                    console.error("Error calling LLM:", error);
+                } finally {
+                    loadingSummary.classList.add('hidden');
+                }
+            }
+
+            // --- Fungsi Memuat Metrik Evaluasi dari Backend ---
+            async function loadMetrics() {
+                metricsDisplay.classList.remove('hidden'); // Tampilkan bagian metrik
+                trainAccuracy.innerText = 'Memuat...';
+                testAccuracy.innerText = 'Memuat...';
+                precision.innerText = 'Memuat...';
+                recall.innerText = 'Memuat...';
+                map.innerText = 'Memuat...';
+
+                try {
+                    // Panggil endpoint train_model untuk mendapatkan metrik
+                    // Catatan: Ini akan melatih ulang model setiap kali dipanggil.
+                    // Untuk produksi, Anda akan memiliki endpoint terpisah untuk hanya mengambil metrik
+                    // atau metrik disimpan di database.
+                    const response = await fetch(`${BACKEND_URL}/train_model`); // Memanggil endpoint train_model
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Gagal memuat metrik dari server.');
+                    }
+                    const data = await response.json();
+                    const metrics = data.metrics;
+
+                    trainAccuracy.innerText = `${(metrics.train_accuracy * 100).toFixed(2)}%`;
+                    testAccuracy.innerText = `${(metrics.test_accuracy * 100).toFixed(2)}%`;
+                    precision.innerText = `${(metrics.precision * 100).toFixed(2)}%`;
+                    recall.innerText = `${(metrics.recall * 100).toFixed(2)}%`;
+                    map.innerText = `${(metrics.map * 100).toFixed(2)}%`;
+
+                } catch (error) {
+                    trainAccuracy.innerText = 'Error';
+                    testAccuracy.innerText = 'Error';
+                    precision.innerText = 'Error';
+                    recall.innerText = 'Error';
+                    map.innerText = 'Error';
+                    console.error("Error loading metrics:", error);
+                    alert(`Gagal memuat metrik: ${error.message}. Pastikan server backend berjalan.`);
+                }
+            }
+
+            // --- Event Listeners ---
+            searchButton.addEventListener('click', performSearch);
+            queryInput.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    performSearch();
+                }
+            });
+            loadMetricsButton.addEventListener('click', loadMetrics);
+
+            // Initial state
+            // Tidak perlu performSearch() awal karena dokumen akan dimuat dari backend
+        </script>
+    </body>
+    </html>
+    
